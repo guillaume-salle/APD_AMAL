@@ -1,3 +1,4 @@
 # APD_AMAL
+Article APD: https://openreview.net/forum?id=nubKjBbazd
 
-https://github.com/jacobgil/pytorch-grad-cam
+librarie CAM++ compliquee: https://github.com/jacobgil/pytorch-grad-cam
