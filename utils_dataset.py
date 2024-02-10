@@ -1,7 +1,5 @@
 import os
 from pathlib import Path
-import subprocess
-import requests
 import cv2
 import numpy as np
 import pandas as pd
