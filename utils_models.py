@@ -58,7 +58,7 @@ def get_model(model_name, device):
         torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
     model.name = model_name
-    model.to(device).eval()
+    model.eval()
     model.requires_grad_(False)  # Freeze parameters
 
     return model
