@@ -2,6 +2,7 @@ import torchvision.models
 import timm
 import torch
 from tqdm import tqdm
+from pytorch_grad_cam import GradCAMPlusPlus
 
 def get_module_by_name(model, module_name):
     """
@@ -86,6 +87,5 @@ def evaluate_model_accuracy(model, dataloader, device):
 
     model.to('cpu')
     torch.cuda.empty_cache()
-    del images, labels, outputs, predicted
 
     return accuracy

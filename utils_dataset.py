@@ -49,3 +49,4 @@ class CustomImageDataset(Dataset):
             image = self.transform(image)
 
         return image, label
+    
