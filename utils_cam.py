@@ -22,11 +22,15 @@ def generate_cams(model, input_images, class_ids):
         numpy.ndarray: An array of class activation maps for the input images, with
                 each CAM resized to match the dimensions of its corresponding input image.
     """
+    device = model.parameters().__next__().device
     input_tensor = model.transform(input_images).detach().requires_grad_(True)
+    input_tensor = input_tensor.to(device)
     
     targets = [ClassifierOutputTarget(class_id) for class_id in class_ids]
+    targets = targets.to(device)
     
     cam = GradCAMPlusPlus(model=model, target_layers=model.target_layers)
+    print(cam.device)
     
     grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
 
