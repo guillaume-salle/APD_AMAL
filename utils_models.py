@@ -1,6 +1,7 @@
 import torchvision.models
 import timm
 import torch
+from tqdm import tqdm
 
 def get_module_by_name(model, module_name):
     """
@@ -18,7 +19,7 @@ def get_module_by_name(model, module_name):
             return module
     return None
 
-def get_model(model_name, device):
+def get_model(model_name):
     """
     Loads a specified model and prepares it for inference, with parameters frozen.
     Additionally, attaches 'transform' and 'target_layers' attributes to the model for required preprocessing
@@ -51,7 +52,7 @@ def get_model(model_name, device):
     else:
         raise ValueError(f"Unsupported model name '{model_name}'. Please provide a valid model name.")
 
-    # Define and attach the transform attribute
+    # Define and attach the transform attribute for preprocessing
     model.transform = torchvision.transforms.Compose([
         torchvision.transforms.Resize(size=(model.input_size, model.input_size)),
         torchvision.transforms.ConvertImageDtype(torch.float32),
@@ -62,3 +63,26 @@ def get_model(model_name, device):
     model.requires_grad_(False)  # Freeze parameters
 
     return model
+
+def evaluate_model_accuracy(model, dataloader, device='cuda'):
+    model.to(device).eval()
+
+    correct = 0
+    total = 0
+    
+    with torch.no_grad(): 
+        for images, labels in tqdm(dataloader, desc="Evaluating"):
+            images = model.transform(images).to(device)
+            labels = labels.to(device)
+
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    accuracy = 100 * correct / total
+    print(f'Accuracy of {model.name}: {accuracy}%')
+
+    model.to('cpu')
+
+    return accuracy

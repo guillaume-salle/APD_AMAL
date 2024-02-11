@@ -3,6 +3,9 @@ from pytorch_grad_cam import GradCAMPlusPlus
 from pytorch_grad_cam.utils.image import show_cam_on_image
 import matplotlib.pyplot as plt
 import math
+import cv2
+import numpy as np
+import torch
 
 
 def generate_cams(model, input_images, class_ids, device='cpu'):
@@ -16,7 +19,8 @@ def generate_cams(model, input_images, class_ids, device='cpu'):
         device (str): The device to perform computations on ('cpu' or 'cuda').
 
     Returns:
-        torch.Tensor: A tensor containing the grayscale class activation maps.
+        numpy.ndarray: An array of class activation maps for the input images, with
+                each CAM resized to match the dimensions of its corresponding input image.
     """
     input_tensor = model.transform(input_images).to(device).detach().requires_grad_(True)
     
@@ -28,13 +32,19 @@ def generate_cams(model, input_images, class_ids, device='cpu'):
 
     return grayscale_cam
 
-def print_cams(grayscale_cams, images):
+def print_cams(model_name, grayscale_cams, images, labels, labels_dict):
     """
-    Visualizes grayscale class activation maps overlaid on the original images.
+    Visualizes grayscale class activation maps overlaid on the original images,
+    resizing the CAMs to match the original image sizes for proper visualization.
+    Adds a title to the figure with the model name and displays actual labels on each image.
 
     Parameters:
-        grayscale_cams (torch.Tensor): The grayscale class activation maps.
-        images (torch.Tensor): The original images.
+        grayscale_cams (numpy.ndarray): An array of grayscale class activation maps.
+        images (torch.Tensor): Original images as a batch tensor of shape (N, C, H, W)
+                            and dtype torch.uint8.
+        model_name (str): The name of the model used to generate the CAMs.
+        labels (list or torch.Tensor): The labels corresponding to each image.
+        labels_dict (dict): A dictionary mapping label IDs to their actual names.
     """
     num_images_to_display = min(25, len(images))
     columns = 5
@@ -45,14 +55,25 @@ def print_cams(grayscale_cams, images):
     for i, cam_image in enumerate(grayscale_cams):
         if i >= num_images_to_display:
             break
-        img = images[i].float() / 255.0 
-        img = img.permute(1, 2, 0).cpu().numpy()
-        visualization = show_cam_on_image(img, cam_image, use_rgb=True)
+        img = images[i].float().div(255.0).cpu().numpy()
+        img = np.transpose(img, (1, 2, 0))  # Convert to HWC for visualization
+        
+        # Resize grayscale CAM to match the original image size
+        cam_resized = cv2.resize(cam_image, (img.shape[1], img.shape[0]))
+        visualization = show_cam_on_image(img, cam_resized, use_rgb=True, image_weight=0.7)
+        
         axes[i].imshow(visualization)
         axes[i].axis('off')
 
-    for j in range(i + 1, len(axes)):
-        axes[j].axis('off')
+        # Get the actual label name using labels_dict
+        label_id = labels[i].item() if isinstance(labels, torch.Tensor) else labels[i]
+        label_name = labels_dict[str(label_id)][1]
 
-    plt.tight_layout()
+        # Display the actual label name for each image
+        axes[i].set_title(label_name, fontsize=12, pad=0)
+
+    # Set the title of the entire figure to include the model name
+    fig.suptitle(f"Class Activation Maps for {model_name}", fontsize=16)
+    plt.subplots_adjust(top=0.96, hspace=0.0, wspace=0.1)
+    # plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust layout to make space for the title
     plt.show()
