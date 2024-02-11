@@ -8,21 +8,21 @@ import numpy as np
 import torch
 
 
-def generate_cams(model, input_images, class_ids, device='cpu'):
+def generate_cams(model, input_images, class_ids):
     """
     Generates class activation maps for a set of images and class IDs using a specified model.
+    The device is inputed from the model device.
 
     Parameters:
         model (torch.nn.Module): The model to generate CAMs for.
         input_images (torch.Tensor): A batch of input images.
         class_ids (list): A list of class IDs for which to generate CAMs.
-        device (str): The device to perform computations on ('cpu' or 'cuda').
 
     Returns:
         numpy.ndarray: An array of class activation maps for the input images, with
                 each CAM resized to match the dimensions of its corresponding input image.
     """
-    input_tensor = model.transform(input_images).to(device).detach().requires_grad_(True)
+    input_tensor = model.transform(input_images).detach().requires_grad_(True)
     
     targets = [ClassifierOutputTarget(class_id) for class_id in class_ids]
     

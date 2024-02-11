@@ -64,8 +64,9 @@ def get_model(model_name):
 
     return model
 
-def evaluate_model_accuracy(model, dataloader, device='cuda'):
-    model.to(device).eval()
+def evaluate_model_accuracy(model, dataloader, device):
+    model.to(device)
+    model.eval()
 
     correct = 0
     total = 0
@@ -84,5 +85,7 @@ def evaluate_model_accuracy(model, dataloader, device='cuda'):
     print(f'Accuracy of {model.name}: {accuracy}%')
 
     model.to('cpu')
+    torch.cuda.empty_cache()
+    del images, labels, outputs, predicted
 
     return accuracy
