@@ -60,4 +60,25 @@ def show_cams(model, images, labels, labels_dict):
         
 
 
-# def show_centers(model, images, labels
+def show_centers(model, images, labels, model_name):
+    images = images[:24]
+    labels = labels[:24]
+
+    grayscale_cam = generate_cams(model, images, labels)
+
+    fig, axes = plt.subplots(4, 6, figsize=(15, 10))
+    axes = axes.flatten()
+
+    fig.suptitle(f'{model_name} CAMs with Centers', fontsize=16)
+
+    for i, ax in enumerate(axes):
+        ax.imshow(grayscale_cam[i], cmap='gray')
+
+        filtered_coordinates = get_centers(grayscale_cam[i], ratio_threshold = 0.6, min_distance = 20)
+
+        # Plot the filtered coordinates on the images
+        ax.plot(filtered_coordinates[:, 1], filtered_coordinates[:, 0], 'r.', markersize=10)
+        ax.set_axis_off()
+
+    plt.tight_layout()
+    plt.show()

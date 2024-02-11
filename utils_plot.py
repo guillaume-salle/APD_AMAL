@@ -25,7 +25,7 @@ def show_images(images, labels, labels_dict, title=None):
     num_images = len(images) if isinstance(images, list) else images.shape[0]
 
     plt.figure(figsize=(15, 12))
-    for i in range(min(24, num_images)):  # Process up to 24 images or the total number of images if fewer
+    for i in range(min(24, num_images)):
         plt.subplot(4, 6, i + 1)
         
         # Handle images if they are in a list or a PyTorch tensor
@@ -41,14 +41,13 @@ def show_images(images, labels, labels_dict, title=None):
 
         plt.imshow(img)
         
-        # Retrieve and display the label
         label = labels[i].item() if hasattr(labels[i], 'item') else labels[i]  # Handle both tensors and direct values
-        label_name = labels_dict.get(str(label), ['Unknown'])[1]  # Safely get the label name with a fallback
+        label_name = labels_dict.get(str(label), ['Unknown'])[1]
         plt.title(label_name)
         plt.axis('off')
 
     if title:
         plt.suptitle(title, fontsize=16)
-    plt.tight_layout()  # Use plt.tight_layout() for better spacing
+    plt.tight_layout()
     plt.show()
  
