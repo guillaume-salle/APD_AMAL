@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from utils_cam import generate_cams, get_centers
 
 
 def show_images(images, labels, labels_dict, title=None):
@@ -51,3 +52,57 @@ def show_images(images, labels, labels_dict, title=None):
     plt.tight_layout()
     plt.show()
  
+def show_cams(model, images, labels, labels_dict):
+    """
+    Visualizes grayscale class activation maps overlaid on the original images,
+    resizing the CAMs to match the original image sizes for proper visualization.
+    Adds a title to the figure with the model name and displays actual labels on each image.
+
+    Parameters:
+        model (torch.nn.Module): The model used to generate the CAMs, with 'transform' and 'cam' methods.
+        images (torch.Tensor): Original images as a batch tensor of shape (N, C, H, W)
+                               and dtype torch.uint8. Only the first 24 images will be processed.
+        labels (torch.Tensor): The labels corresponding to each image.
+        labels_dict (dict): A dictionary mapping label IDs to their actual names.
+    """
+    images = images[:24]
+    labels = labels[:24]
+
+    grayscale_cam = generate_cams(model, images, labels)
+
+    processed_images = []
+
+    for i in tqdm(range(24), desc="Processing Images"):
+        img = images[i].float().div(255.0).cpu().numpy()
+        img = np.transpose(img, (1, 2, 0))  
+        
+        cam_resized = cv2.resize(grayscale_cam[i], (img.shape[1], img.shape[0]))
+        processed_images.append(show_cam_on_image(img, cam_resized, use_rgb=True))
+
+    title = f'{model.__class__.__name__} CAMs'
+    show_images(processed_images, labels, labels_dict, title=title)
+        
+
+
+def show_centers(model, images, labels, model_name):
+    images = images[:24]
+    labels = labels[:24]
+
+    grayscale_cam = generate_cams(model, images, labels)
+
+    fig, axes = plt.subplots(4, 6, figsize=(15, 10))
+    axes = axes.flatten()
+
+    fig.suptitle(f'{model_name} CAMs with Centers', fontsize=16)
+
+    for i, ax in enumerate(axes):
+        ax.imshow(grayscale_cam[i], cmap='gray')
+
+        filtered_coordinates = get_centers(grayscale_cam[i], ratio_threshold = 0.6, min_distance = 20)
+
+        # Plot the filtered coordinates on the images
+        ax.plot(filtered_coordinates[:, 1], filtered_coordinates[:, 0], 'r.', markersize=10)
+        ax.set_axis_off()
+
+    plt.tight_layout()
+    plt.show()
