@@ -145,7 +145,7 @@ def replace_pixels(xadv, xclean, center, method="square", cam=None, region_thres
 def APD(x_clean, y_true, model, 
         min_distance=20, eps=0.274, T=10, alpha=1.6, beta=27, m=5,
         ratio_threshold=0.6, cam_method = "++", momentum = 1.0,
-        use_zero_gradient_method = False, replace_method = "square"):
+        use_zero_gradient_method = False, replace_method = "square", method_centers="our_method"):
   """
   Performs Adversarial Perturbation Dropout (APD) to generate adversarial examples.
 
@@ -164,6 +164,7 @@ def APD(x_clean, y_true, model,
       momentum (float or None): Momentum factor for gradient accumulation. If None, momentum is not used.
       use_zero_gradient_method (bool): If True, uses zero gradient method for dropout.
       replace_method (string): Method to replace pixels, supports "square" and "threshold".
+      method_centers (string): Method to get centers of local maxima, "our_method" or "article".
 
   Returns:
       torch.Tensor: The adversarial example generated from the clean image.
@@ -188,7 +189,8 @@ def APD(x_clean, y_true, model,
     x_adv.requires_grad_(True)
     g = 0
     grayscale_cam = cam(input_tensor=x_adv, targets=targets)
-    centers = get_centers(grayscale_cam[0], ratio_threshold, min_distance)
+    centers = get_centers(grayscale_cam[0], ratio_threshold, min_distance,
+                          method_centers=method_centers)
 
     for center in centers:
       for k in range(1, m+1):
@@ -243,7 +245,8 @@ def APD(x_clean, y_true, model,
   return x_adv
 
 
-def save_adversarial_images(dataloader, model, device, save_dir=None, attack_method="APD"):
+def save_adversarial_images(dataloader, model, device, save_dir=None, attack_method="APD",
+                            method_centers="our_method"):
     """
     Processes the entire dataset to generate and save adversarial images within a 'Generated'
     parent directory, naming the subdirectory after the model if not specified.
@@ -255,6 +258,7 @@ def save_adversarial_images(dataloader, model, device, save_dir=None, attack_met
         device (torch.device): The device (e.g., 'cuda' or 'cpu') for computation.
         save_dir (str, optional): Subdirectory within 'Generated' where adversarial images will be saved.
                                   If None, a directory named '{model.name}_adv' is used.
+        method_centers (string): Method to get centers of local maxima, "our_method" or "article".
 
     Returns:
         None. Saves adversarial images to disk, skipping if the directory already exists.
@@ -273,7 +277,7 @@ def save_adversarial_images(dataloader, model, device, save_dir=None, attack_met
     msg = f"Generating adversarial images with {model.name}"
     for batch_idx, (images, labels, IDs) in enumerate(tqdm(dataloader, desc=msg)):
         if attack_method == "APD":
-          x_adv = APD(images, labels, model)
+          x_adv = APD(images, labels, model, method_centers=method_centers)
         elif attack_method == "MFGSM":
           x_adv = MFGSM(images, labels, model)
         else:
@@ -286,3 +290,108 @@ def save_adversarial_images(dataloader, model, device, save_dir=None, attack_met
 
     model.to('cpu')
     print(f"Adversarial images saved in '{save_dir}'.")
+
+
+# Copy of APD for ensemble adversarial attack, work in progress
+# def APD_ens(x_clean, y_true, models, 
+#         min_distance=20, eps=0.274, T=10, alpha=1.6, beta=27, m=5,
+#         ratio_threshold=0.6, cam_method = "++", momentum = 1.0,
+#         use_zero_gradient_method = False, replace_method = "square"):
+#   """
+#   Performs Adversarial Perturbation Dropout (APD) to generate adversarial examples.
+
+#   Parameters:
+#       x_clean (torch.Tensor): The clean input image tensor.
+#       y_true (torch.Tensor): The true label tensor for x_clean.
+#       model (torch.nn.Module): The model against which the adversarial attack is performed.
+#       min_distance (int): Minimum distance between centers for dropout.
+#       eps (float): The maximum perturbation allowed.
+#       T (int): Number of iterations to perform the attack.
+#       alpha (float): Step size for each iteration.
+#       beta (int): Parameter to control the size of the square/region for replacement.
+#       m (int): Number of dropout iterations per main iteration.
+#       ratio_threshold (float): Ratio threshold for selecting center points based on CAM.
+#       cam_method (str): Method for CAM generation, supports "normal" and "++".
+#       momentum (float or None): Momentum factor for gradient accumulation. If None, momentum is not used.
+#       use_zero_gradient_method (bool): If True, uses zero gradient method for dropout.
+#       replace_method (string): Method to replace pixels, supports "square" and "threshold".
+
+#   Returns:
+#       torch.Tensor: The adversarial example generated from the clean image.
+#   """
+#   first_model = models[0]
+#   device = next(first_model.parameters()).device
+#   y_true = y_true.to(device)
+#   x_clean_preprocessed = first_model.transform(x_clean).to(device)
+#   x_adv = x_clean_preprocessed.clone().detach().requires_grad_(True)
+  
+#   criterion = torch.nn.CrossEntropyLoss().to(device)
+
+#   target_layers = [model.target_layers for model in models]
+#   if cam_method == "normal":
+#     cams = [GradCAM(model=model, target_layers=target_layers) for model in models]
+#   elif cam_method == "++":
+#     cams = [GradCAMPlusPlus(model=model, target_layers=target_layers) for model in models]
+#   targets = [ClassifierOutputTarget(torch.argmax(y_true))]
+  
+#   if momentum is not None:
+#     previous_g = torch.zeros_like(x_adv)
+#   for t in range(0, T):
+#     x_adv.requires_grad_(True)
+#     g = 0
+#     grayscale_cam = torch.zeros_like(x_adv)
+#     grayscale_cam += [cam(input_tensor=x_adv, targets=targets) for cam in cams]
+#     centers = get_centers(grayscale_cam[0], ratio_threshold, min_distance)
+
+#     for center in centers:
+#       for k in range(1, m+1):
+#         if not use_zero_gradient_method:
+#           x_drop = torch.clone(x_adv).detach()
+#           if replace_method == "square":
+#             x_drop.data = replace_pixels(x_drop.data, x_clean_preprocessed.data, center, 
+#                                          "square", side_length_square = beta*k)
+#           elif replace_method == "threshold":
+#             x_drop.data = replace_pixels(x_drop.data, x_clean_preprocessed.data, center, 
+#                                          "threshold", grayscale_cam[0], 
+#                                          region_threshold_ratio = 0.88**k, 
+#                                          side_length_threshold = beta*m)
+#           x_drop = x_drop.detach()
+#           x_drop.requires_grad_(True)
+#           output = 0
+#           output += model(x_drop)
+#           loss = criterion(output, y_true)
+#           loss.backward()
+#           grad = x_drop.grad.data
+#           g += grad
+#           x_drop.grad.zero_()
+
+#         elif use_zero_gradient_method:
+#           loss = criterion(model(x_adv)[0], y_true)
+#           loss.backward()
+#           grad = x_adv.grad.data
+#           if replace_method == "square":
+#             grad.data = replace_pixels(grad.data, torch.zeros_like(grad.data), center, "square", side_length_square = beta*k)
+#           elif replace_method == "threshold":
+#             grad.data = replace_pixels(grad.data, torch.zeros_like(grad.data), center, "threshold", grayscale_cam[0],
+#                                        region_threshold_ratio = 0.88**k, side_length_threshold = beta*m)
+#           g += grad
+#           x_adv.grad.zero_()
+
+#     g *= 1/(len(centers)*m)
+
+#     if momentum is not None:
+#       g = momentum * previous_g + g / torch.mean(torch.abs(g), dim = (1,2,3), keepdim=True)
+
+#     x_adv_max = x_clean_preprocessed + eps
+#     x_adv_min = x_clean_preprocessed - eps
+
+#     with torch.no_grad():
+#       x_adv_max = normalized_clamp(x_adv_max)
+#       x_adv_min = normalized_clamp(x_adv_min)
+#       g_sign = g.sign()
+#       perturbed_x_adv = x_adv + alpha * g_sign
+#       x_adv = torch.max(torch.min(perturbed_x_adv, x_adv_max), x_adv_min)
+#       previous_g = torch.clone(g)
+
+#   return x_adv
+

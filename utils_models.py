@@ -126,7 +126,7 @@ def load_model(model_name, model_dir="Model"):
     
     return model
 
-def evaluate_model_accuracy(model, dataloader, device):
+def evaluate_model_accuracy(model, dataloader, device, print_result=True):
     model.to(device)
     model.eval()
 
@@ -134,7 +134,7 @@ def evaluate_model_accuracy(model, dataloader, device):
     total = 0
     
     with torch.no_grad(): 
-        for images, labels, _ in tqdm(dataloader, desc="Evaluating"):
+        for images, labels, _ in tqdm(dataloader, desc="Evaluating", leave=False):
             images = model.transform(images).to(device)
             labels = labels.to(device)
 
@@ -144,7 +144,9 @@ def evaluate_model_accuracy(model, dataloader, device):
             correct += (predicted == labels).sum().item()
 
     accuracy = 100 * correct / total
-    print(f'Accuracy of {model.name}: {accuracy}%')
+
+    if print_result == True:
+        print(f'Accuracy of {model.name}: {accuracy}%')
 
     model.to('cpu')
     torch.cuda.empty_cache()
@@ -152,9 +154,11 @@ def evaluate_model_accuracy(model, dataloader, device):
     return accuracy
 
 
-def evaluate_cross_model_accuracy(models, label_file_path, batch_size, num_workers, device, dir_suffix="_apd"):
+def evaluate_cross_model_accuracy(models, label_file_path, batch_size, num_workers, device, 
+                                  dir_suffix="_apd", print_result=False):
     """
-    Evaluates the accuracy of models against adversarial examples generated for each other and compiles the results into a DataFrame.
+    Evaluates the accuracy of models against adversarial examples generated 
+    for each other and compiles the results into a DataFrame.
 
     Parameters:
         models (list): A list of models to evaluate.
@@ -175,8 +179,10 @@ def evaluate_cross_model_accuracy(models, label_file_path, batch_size, num_worke
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
         
         for model_target in models:
-            print(f"Attacking {model_target.name} with {model_base.name}")
-            accuracy = evaluate_model_accuracy(model_target, dataloader, device)
+            if print_result is True:
+                print(f"Attacking {model_target.name} with {model_base.name}")
+            accuracy = evaluate_model_accuracy(model_target, dataloader, device, 
+                                               print_result=print_result)
             
             results.append({
                 "Base Model": model_base.name,
@@ -187,5 +193,4 @@ def evaluate_cross_model_accuracy(models, label_file_path, batch_size, num_worke
     df_results = pd.DataFrame(results)
     df_pivot = df_results.pivot(index='Base Model', columns='Target Model', values='Accuracy')
 
-    print(df_pivot)
     return df_pivot
