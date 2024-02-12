@@ -185,7 +185,7 @@ def evaluate_cross_model_accuracy(models, label_file_path, batch_size, num_worke
             })
 
     df_results = pd.DataFrame(results)
-    df_pivot = df_results.pivot("Base Model", "Target Model", "Accuracy")
+    df_pivot = df_results.pivot(index='Base Model', columns='Target Model', values='Accuracy')
 
     print(df_pivot)
     return df_pivot

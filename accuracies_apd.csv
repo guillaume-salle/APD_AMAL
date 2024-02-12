@@ -1,0 +1,5 @@
+Base Model,adv_inception_v3,inception_resnet_v2,inception_v3,inception_v4,resnet101
+inception_resnet_v2,55.0,0.1,35.3,36.0,61.3
+inception_v3,64.4,67.5,1.7,61.8,82.9
+inception_v4,60.7,46.4,36.2,0.0,65.4
+resnet101,56.2,48.8,39.6,41.9,0.3
