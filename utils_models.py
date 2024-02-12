@@ -1,8 +1,12 @@
 import torchvision.models
 import timm
 import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
+import pandas as pd
+from utils_dataset import CustomImageDataset
 
 def get_module_by_name(model, module_name):
     """
@@ -19,6 +23,17 @@ def get_module_by_name(model, module_name):
         if name.endswith(module_name): 
             return module
     return None
+
+class CombinedModel(nn.Module):
+    def __init__(self, models):
+        super(CombinedModel, self).__init__()
+        self.models = nn.ModuleList(models)
+        
+    def forward(self, x):
+        outputs = [model(x) for model in self.models]
+        total_output = torch.sum(torch.stack(outputs), dim=0)
+        return total_output
+
 
 def get_model(model_name):
     """
@@ -61,6 +76,11 @@ def get_model(model_name):
         model = timm.create_model("inception_resnet_v2", pretrained=True)
         model.input_size = 299
         model.target_layers = [get_module_by_name(model, 'conv2d_7b')]
+    # elif model_name == "ensemble":
+    #     inception_v3 = get_model("inception_v3")
+    #     inception_v4 = get_model("inception_v4")
+    #     inception_resnet_v2 = get_model("inception_resnet_v2")
+    #     model = CombinedModel([inception_v3, inception_v4, inception_resnet_v2])
     else:
         raise ValueError(f"Unsupported model name '{model_name}'. Please provide a valid model name.")
 
@@ -130,3 +150,42 @@ def evaluate_model_accuracy(model, dataloader, device):
     torch.cuda.empty_cache()
 
     return accuracy
+
+
+def evaluate_cross_model_accuracy(models, label_file_path, batch_size, num_workers, device, dir_suffix="_apd"):
+    """
+    Evaluates the accuracy of models against adversarial examples generated for each other and compiles the results into a DataFrame.
+
+    Parameters:
+        models (list): A list of models to evaluate.
+        label_file_path (str): Path to the file containing labels.
+        batch_size (int): Batch size for the DataLoader.
+        num_workers (int): Number of workers for the DataLoader.
+        device (str): The device to run the evaluation on.
+        dir_suffix (str): Suffix for the directory containing adversarial images.
+
+    Returns:
+        pd.DataFrame: A pivot table showing the accuracy of each base model against each target model.
+    """
+    results = []
+
+    for model_base in (m for m in models if m.name != "adv_inception_v3"):
+        images_folder_path = os.path.join("Generated", f"{model_base.name}{dir_suffix}")
+        dataset = CustomImageDataset(label_file_path, images_folder_path)
+        dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
+        
+        for model_target in models:
+            print(f"Attacking {model_target.name} with {model_base.name}")
+            accuracy = evaluate_model_accuracy(model_target, dataloader, device)
+            
+            results.append({
+                "Base Model": model_base.name,
+                "Target Model": model_target.name,
+                "Accuracy": accuracy
+            })
+
+    df_results = pd.DataFrame(results)
+    df_pivot = df_results.pivot("Base Model", "Target Model", "Accuracy")
+
+    print(df_pivot)
+    return df_pivot
