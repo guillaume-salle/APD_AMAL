@@ -272,38 +272,3 @@ def save_adversarial_images(dataloader, model, device, save_dir=None):
 
     model.to('cpu')
     print(f"Adversarial images saved in '{save_dir}'.")
-
-# def save_adversarial_images(dataloader, model, device, save_dir=None):
-#     """
-#     Processes the entire dataset to generate and save adversarial images.
-
-#     Parameters:
-#         dataloader (torch.utils.data.DataLoader): The dataloader for the dataset.
-#         model (torch.nn.Module): The model used to generate adversarial examples.
-#         save_dir (str, optional): Directory where adversarial images will be saved.
-#                                   Defaults to "adversarial_images".
-
-#     Returns:
-#         None. Saves adversarial images to disk.
-#     """
-#     if save_dir is None:
-#       save_dir = f"{model.name}_adv"
-#     # Check if the directory already exists
-#     if os.path.exists(save_dir):
-#         print(f"Directory '{save_dir}' already exists. Skipping adversarial image generation and saving.")
-#         return
-
-#     # If the directory does not exist, create it
-#     os.makedirs(save_dir, exist_ok=True) 
-
-#     model.to(device)
-#     msg = f"Generating adversarial images with {model.name}"
-#     for batch_idx, (images, labels, IDs) in enumerate(tqdm(dataloader, desc=msg)):
-#         x_adv = APD(images, labels, model)
-#         # Convert adversarial examples back to CPU for saving
-#         x_adv_cpu = x_adv.cpu()
-#         for i, x_adv_img in enumerate(x_adv_cpu):
-#             save_path = os.path.join(save_dir, f"{IDs[i]}.png")
-#             save_image(x_adv_img, save_path)
-
-#     model.to('cpu')

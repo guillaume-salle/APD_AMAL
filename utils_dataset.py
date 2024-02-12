@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import torch
 from torch.utils.data import Dataset
 from torchvision.io import read_image
+import json
+import requests
 
 class CustomImageDataset(Dataset):
     """
@@ -74,3 +76,35 @@ def deprocess_image(image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
         print("Deprocessed image has values outside the range [0, 1].")
 
     return deprocessed_img.to('cpu')
+
+
+def load_labels():
+    """
+    Checks if labels are saved locally and loads them. 
+    If not, downloads the labels from the URL, saves them, and then loads them.
+
+    Parameters: None
+
+    Returns:
+        labels_dict (dict): A dictionary containing the labels.
+    """
+    labels_url = 'https://storage.googleapis.com/download.tensorflow.org/data/imagenet_class_index.json'
+    labels_file = 'imagenet_class_index.json'
+    
+    # Check if the labels already exist
+    if os.path.isfile(labels_file):
+        print(f"Loading labels from {labels_file}")
+        with open(labels_file, 'r') as file:
+            labels_dict = json.load(file)
+    else:
+        print(f"Labels not found locally. Downloading from {labels_url} and saving...")
+        try:
+            labels_response = requests.get(labels_url)
+            labels_dict = labels_response.json()
+            with open(labels_file, 'w') as file:
+                json.dump(labels_dict, file)
+            print(f"Labels saved to {labels_file}")
+        except Exception as e:
+            raise Exception(f"Failed to download labels from {labels_url}. Error: {e}")
+    
+    return labels_dict

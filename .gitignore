@@ -2,5 +2,7 @@ data
 *.npz
 __pycache__
 Generated
+*.pth
+imagenet_class_index.json
 
 785_apd_boosting_adversarial_trans.pdf

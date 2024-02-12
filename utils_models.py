@@ -2,6 +2,7 @@ import torchvision.models
 import timm
 import torch
 from tqdm import tqdm
+import os
 
 def get_module_by_name(model, module_name):
     """
@@ -61,6 +62,36 @@ def get_model(model_name):
     model.name = model_name
     model.eval()
     model.requires_grad_(False)  # Freeze parameters
+    
+    return model
+
+def load_model(model_name, model_dir="Model"):
+    """
+    Checks if a model is saved in the specified directory and loads it. If not,
+    it downloads the model (when online), saves it, and then loads it.
+
+    Parameters:
+        model_name (str): The name of the model to load or save.
+        model_dir (str, optional): The directory to check for the saved model and
+                                   where to save the model. Defaults to "Model".
+
+    Returns:
+        model (torch.nn.Module): The loaded PyTorch model.
+    """
+    # Ensure the model directory exists
+    os.makedirs(model_dir, exist_ok=True)
+    
+    model_path = os.path.join(model_dir, f"{model_name}.pth")
+    
+    # Check if the model already exists
+    if os.path.isfile(model_path):
+        print(f"Loading model '{model_name}' from {model_path}")
+        model = torch.load(model_path)
+    else:
+        print(f"Model '{model_name}' not found in {model_dir}. Downloading and saving...")
+        model = get_model(model_name)  # Replace this with actual download function
+        torch.save(model, model_path)
+        print(f"Model '{model_name}' saved to {model_path}")
     
     return model
 
