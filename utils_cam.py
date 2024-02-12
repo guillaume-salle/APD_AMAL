@@ -26,7 +26,7 @@ def generate_cams(model, images, labels, method="++"):
     return grayscale_cam
 
 
-def get_centers(grayscale_cam, ratio_threshold=0.6, min_distance=20, num_peaks=3):
+def get_centers(grayscale_cam, ratio_threshold=0.6, min_distance=20, num_peaks=3, method_centers="new"):
     """
     Identifies and filters the coordinates of local maxima in a grayscale class activation map (CAM)
     based on specified intensity ratio threshold, minimum distance between maxima, and number of peaks.
@@ -38,13 +38,35 @@ def get_centers(grayscale_cam, ratio_threshold=0.6, min_distance=20, num_peaks=3
     - num_peaks (int, optional): Maximum number of peaks to identify.
 
     Returns:
-    - filtered_coordinates (ndarray): Array of filtered coordinates of local maxima.
+    - coordinates_centers (ndarray): Array of filtered coordinates of local maxima.
     """
-    coordinates = peak_local_max(grayscale_cam, num_peaks=num_peaks, exclude_border=False, min_distance=min_distance)
+    if method_centers == "new":
+        coordinates_centers = peak_local_max(grayscale_cam, num_peaks=num_peaks, exclude_border=False, min_distance=min_distance)
 
-    if len(coordinates) == 0:
-        return np.array([np.unravel_index(np.argmax(grayscale_cam), grayscale_cam.shape)])
+        if len(coordinates_centers) == 0:
+            return np.array([np.unravel_index(np.argmax(grayscale_cam), grayscale_cam.shape)])
 
-    maxima_values = grayscale_cam[coordinates[:, 0], coordinates[:, 1]]
-    highest_maxima_value = max(maxima_values)
-    return coordinates[maxima_values >= ratio_threshold * highest_maxima_value]
+        maxima_values = grayscale_cam[coordinates_centers[:, 0], coordinates_centers[:, 1]]
+        highest_maxima_value = max(maxima_values)
+        coordinates_centers = coordinates_centers[maxima_values >= ratio_threshold * highest_maxima_value]
+    elif method_centers == "article":
+        coordinates_centers = []
+        for activation_value in activation_values:
+            coordinates_for_a_map = []
+            bigger_than_3 = False
+            for w in range(1, activation_value.shape[0] - 1):
+                for h in range(1, activation_value.shape[1] - 1):
+                    temp_data = []
+                    temp_data.append(activation_value[w - 1][h])
+                    temp_data.append(activation_value[w + 1][h])
+                    temp_data.append(activation_value[w][h - 1])
+                    temp_data.append(activation_value[w][h + 1])
+                    if activation_value[w][h] > max(temp_data):
+                        coordinates_for_a_map.append([w, h])
+                    if len(coordinates_for_a_map) >= 3:
+                        bigger_than_3 = True
+                        break
+                if bigger_than_3:
+                    break
+            coordinates_centers.append(coordinates_for_a_map)
+    return coordinates_centers

@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import torch.nn.functional as F
+import torch
 from torch.utils.data import Dataset
 from torchvision.io import read_image
 
@@ -48,5 +49,28 @@ class CustomImageDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, label
+        return image, label, img_id
     
+def deprocess_image(image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+    """
+    Deprocesses an image that has been processed with the specified normalization.
+
+    Parameters:
+        image (torch.Tensor): The processed image tensor to be deprocessed.
+        mean (list): The mean used in normalization for each channel.
+        std (list): The standard deviation used in normalization for each channel.
+
+    Returns:
+        torch.Tensor: The deprocessed image tensor.
+    """
+    mean = torch.tensor(mean).view(1, -1, 1, 1).to(image.device)
+    std = torch.tensor(std).view(1, -1, 1, 1).to(image.device)
+
+    # Inverse of normalization: multiply by std and add the mean
+    deprocessed_img = image * std + mean
+
+    # Clip values to ensure they are between 0 and 1
+    if not torch.equal(deprocessed_img, torch.clamp(deprocessed_img, 0, 1)):
+        print("Deprocessed image has values outside the range [0, 1].")
+
+    return deprocessed_img.to('cpu')

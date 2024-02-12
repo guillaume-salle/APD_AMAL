@@ -2,7 +2,6 @@ import torchvision.models
 import timm
 import torch
 from tqdm import tqdm
-from pytorch_grad_cam import GradCAMPlusPlus
 
 def get_module_by_name(model, module_name):
     """
@@ -62,7 +61,7 @@ def get_model(model_name):
     model.name = model_name
     model.eval()
     model.requires_grad_(False)  # Freeze parameters
-
+    
     return model
 
 def evaluate_model_accuracy(model, dataloader, device):

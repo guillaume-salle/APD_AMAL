@@ -1,5 +1,6 @@
 data
 *.npz
 __pycache__
+Generated
 
 785_apd_boosting_adversarial_trans.pdf
