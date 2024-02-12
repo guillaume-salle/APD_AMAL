@@ -263,8 +263,7 @@ def save_adversarial_images(dataloader, model, device, save_dir=None):
     model.to(device)
     msg = f"Generating adversarial images with {model.name}"
     for batch_idx, (images, labels, IDs) in enumerate(tqdm(dataloader, desc=msg)):
-        # Ensure images and labels are on the same device as the model
-        x_adv = APD(images.to(device), labels.to(device), model, device=device)  # Adjust as necessary
+        x_adv = APD(images, labels, model)
         x_adv_cpu = x_adv.cpu()
         for i, x_adv_img in enumerate(x_adv_cpu):
             save_path = os.path.join(save_dir, f"{IDs[i]}.png")

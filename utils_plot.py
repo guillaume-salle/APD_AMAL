@@ -6,7 +6,6 @@ from tqdm import tqdm
 from utils_cam import generate_cams, get_centers
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
-import math
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
