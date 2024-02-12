@@ -71,9 +71,9 @@ def deprocess_image(image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     # Inverse of normalization: multiply by std and add the mean
     deprocessed_img = image * std + mean
 
-    # Clip values to ensure they are between 0 and 1
-    if not torch.equal(deprocessed_img, torch.clamp(deprocessed_img, 0, 1)):
-        print("Deprocessed image has values outside the range [0, 1].")
+    # # Clip values to ensure they are between 0 and 1
+    # if not torch.equal(deprocessed_img, torch.clamp(deprocessed_img, 0, 1)):
+    #     print("Deprocessed image has values outside the range [0, 1].")
 
     return deprocessed_img.to('cpu')
 

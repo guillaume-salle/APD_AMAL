@@ -34,14 +34,22 @@ def get_model(model_name):
         torch.nn.Module: The requested model, ready for inference, with 'transform' and 'target_layers' attributes.
     """
     # Instantiate the model
-    if model_name == "resnet50":
-        model = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.IMAGENET1K_V1)
-        model.input_size = 224
-        model.target_layers = [model.layer4[-1]]  # Directly assign target layers
-    elif model_name == "squeezenet":
+    # if model_name == "resnet50":
+    #     model = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.IMAGENET1K_V1)
+    #     model.input_size = 224
+    #     model.target_layers = [model.layer4[-1]]  # Directly assign target layers
+    if model_name == "squeezenet":
         model = torchvision.models.squeezenet1_1(weights=torchvision.models.SqueezeNet1_1_Weights.DEFAULT)
         model.input_size = 224
         model.target_layers = [model.features[-1]]
+    elif model_name == "resnet101":
+        model = timm.create_model("resnet101", pretrained=True)
+        model.input_size = 224
+        model.target_layers = [get_module_by_name(model, 'layer4')[-1]]
+    elif model_name == "inception_v3":
+        model = timm.create_model("inception_v3", pretrained=True)
+        model.input_size = 299
+        model.target_layers = [get_module_by_name(model, 'Mixed_7c')]
     elif model_name == "inception_v4":
         model = timm.create_model("inception_v4", pretrained=True)
         model.input_size = 299
@@ -50,6 +58,10 @@ def get_model(model_name):
         model = timm.create_model("inception_v3.tf_adv_in1k", pretrained=True)
         model.input_size = 299
         model.target_layers = [get_module_by_name(model, 'Mixed_7c')]
+    elif model_name == "inception_resnet_v2":
+        model = timm.create_model("inception_resnet_v2", pretrained=True)
+        model.input_size = 299
+        model.target_layers = [get_module_by_name(model, 'conv2d_7b')]
     else:
         raise ValueError(f"Unsupported model name '{model_name}'. Please provide a valid model name.")
 
@@ -103,7 +115,7 @@ def evaluate_model_accuracy(model, dataloader, device):
     total = 0
     
     with torch.no_grad(): 
-        for images, labels in tqdm(dataloader, desc="Evaluating"):
+        for images, labels, _ in tqdm(dataloader, desc="Evaluating"):
             images = model.transform(images).to(device)
             labels = labels.to(device)
 

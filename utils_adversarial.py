@@ -5,51 +5,58 @@ from utils_cam import get_centers
 import os
 from tqdm import tqdm
 from torchvision.utils import save_image
+from utils_dataset import deprocess_image
 
 
-def MFGSM(x_clean, y_true, model_name, model, eps, T, alpha,
-          mean, std, momentum = None, device = "cuda"):
+def MFGSM(x_clean, y_true, model, eps=0.274, T=10, alpha=1.6, momentum=1.0):
+  """
+  Applies the Momentum Iterative Fast Gradient Sign Method (MFGSM) to generate adversarial examples.
 
+  Parameters:
+      x_clean (torch.Tensor): The clean images tensor.
+      y_true (torch.Tensor): The true labels tensor.
+      model (torch.nn.Module): The model against which the adversarial examples are generated.
+      eps (float): The maximum perturbation amount allowed (epsilon).
+      T (int): The number of iterations to apply the gradient sign method.
+      alpha (float): The step size or alpha value for the gradient update.
+      momentum (float): The momentum term to stabilize gradient directions across iterations.
+
+  Returns:
+      torch.Tensor: The generated adversarial examples.
+
+  This function generates adversarial examples by iteratively applying the gradient sign method 
+  with a momentum term. The adversarial examples are constrained to be within an epsilon ball 
+  around the clean images, and their pixel values are clamped to ensure they are valid images.
+  """
+  device = next(model.parameters()).device
   y_true = y_true.to(device)
+  x_clean_preprocessed = model.transform(x_clean).to(device)
+  x_adv = x_clean_preprocessed.clone().detach().requires_grad_(True)
 
-  if momentum != None:
-    use_momentum = True
-  else:
-    use_momentum = False
+  criterion = torch.nn.CrossEntropyLoss().to(device)
 
-  x_adv = torch.clone(x_clean).detach().requires_grad_(True)
-
-  criterion = torch.nn.CrossEntropyLoss()
-
-  if use_momentum:
-    previous_g = 0
-
-  g = 0
-
+  if momentum is not None:
+    previous_g = torch.zeros_like(x_adv)
   for t in range(0, T):
-
     x_adv.requires_grad_(True)
 
-    loss = criterion(model(x_adv)[0], y_true)
+    loss = criterion(model(x_adv), y_true)
     loss.backward()
     g = torch.clone(x_adv.grad.data)
     x_adv.grad.zero_()
 
-    if use_momentum:
+    if momentum is not None:
       g = momentum * previous_g + g / torch.mean(torch.abs(g), dim = (1,2,3), keepdim=True)
 
-    x_adv_max = x_clean + eps
-    x_adv_min = x_clean - eps
+    x_adv_max = x_clean_preprocessed + eps
+    x_adv_min = x_clean_preprocessed - eps
 
     with torch.no_grad():
-
       x_adv_max = normalized_clamp(x_adv_max)
       x_adv_min = normalized_clamp(x_adv_min)
-
       g_sign = g.sign()
       perturbed_x_adv = x_adv + alpha * g_sign
       x_adv = torch.max(torch.min(perturbed_x_adv, x_adv_max), x_adv_min)
-
       previous_g = torch.clone(g)
 
   return x_adv
@@ -86,7 +93,7 @@ def normalized_clamp(normalized_tensor,
     return clamped_tensor
 
 
-def replace_pixels(xadv, xclean, center, method="square", cam=None, threshold=None, 
+def replace_pixels(xadv, xclean, center, method="square", cam=None, region_threshold_ratio=0.9, 
                    side_length_square=None, side_length_threshold=None):
     """
     Replaces pixels in an adversarial example with pixels from the clean image
@@ -111,7 +118,7 @@ def replace_pixels(xadv, xclean, center, method="square", cam=None, threshold=No
         mask = (dist_x <= side_length_square) & (dist_y <= side_length_square)
         
     elif method == "threshold":
-        if cam is None or threshold is None or side_length_threshold is None:
+        if cam is None or region_threshold_ratio is None or side_length_threshold is None:
             raise ValueError("For 'threshold' method, cam, threshold, and side_length_threshold must be provided.")
         
         # Ensure cam matches the spatial dimensions
@@ -121,7 +128,8 @@ def replace_pixels(xadv, xclean, center, method="square", cam=None, threshold=No
         # Calculate distances and create mask based on threshold
         dist_x = torch.abs(grid_x - center[1])
         dist_y = torch.abs(grid_y - center[0])
-        mask = (dist_x <= side_length_threshold) & (dist_y <= side_length_threshold) & (cam > threshold)
+        threshold_value = region_threshold_ratio * cam[center]
+        mask = (dist_x <= side_length_threshold) & (dist_y <= side_length_threshold) & (cam > threshold_value)
     
     else:
         raise ValueError("Unsupported method specified.")
@@ -135,8 +143,8 @@ def replace_pixels(xadv, xclean, center, method="square", cam=None, threshold=No
     return result
 
 def APD(x_clean, y_true, model, 
-        min_distance=20, eps=0.274, T=10, alpha=0.5, beta=15, m=5,
-        ratio_threshold=0.6, cam_method = "++", momentum = None,
+        min_distance=20, eps=0.274, T=10, alpha=1.6, beta=27, m=5,
+        ratio_threshold=0.6, cam_method = "++", momentum = 1.0,
         use_zero_gradient_method = False, replace_method = "square"):
   """
   Performs Adversarial Perturbation Dropout (APD) to generate adversarial examples.
@@ -161,26 +169,25 @@ def APD(x_clean, y_true, model,
       torch.Tensor: The adversarial example generated from the clean image.
   """
   device = next(model.parameters()).device
+  y_true = y_true.to(device)
+  x_clean_preprocessed = model.transform(x_clean).to(device)
+  x_adv = x_clean_preprocessed.clone().detach().requires_grad_(True)
+  
+  criterion = torch.nn.CrossEntropyLoss().to(device)
+
   target_layers = model.target_layers
   if cam_method == "normal":
     cam = GradCAM(model=model, target_layers=target_layers)
   elif cam_method == "++":
     cam = GradCAMPlusPlus(model=model, target_layers=target_layers)
   targets = [ClassifierOutputTarget(torch.argmax(y_true))]
-
-  y_true = y_true.to(device)
-  x_clean_preprocessed = model.transform(x_clean).to(device)
-  x_adv = x_clean_preprocessed.clone().detach().requires_grad_(True)
   
-  criterion = torch.nn.CrossEntropyLoss().to(device)
-  
+  if momentum is not None:
+    previous_g = torch.zeros_like(x_adv)
   for t in range(0, T):
     x_adv.requires_grad_(True)
     g = 0
-    if momentum is not None:
-      previous_g = 0
     grayscale_cam = cam(input_tensor=x_adv, targets=targets)
-    max_cam = grayscale_cam.max()
     centers = get_centers(grayscale_cam[0], ratio_threshold, min_distance)
 
     for center in centers:
@@ -193,11 +200,13 @@ def APD(x_clean, y_true, model,
           elif replace_method == "threshold":
             x_drop.data = replace_pixels(x_drop.data, x_clean_preprocessed.data, center, 
                                          "threshold", grayscale_cam[0], 
-                                         threshold = max_cam/(0.88**k), 
+                                         region_threshold_ratio = 0.88**k, 
                                          side_length_threshold = beta*m)
           x_drop = x_drop.detach()
           x_drop.requires_grad_(True)
-          loss = criterion(model(x_drop), y_true)
+          output = 0
+          output += model(x_drop)
+          loss = criterion(output, y_true)
           loss.backward()
           grad = x_drop.grad.data
           g += grad
@@ -211,7 +220,7 @@ def APD(x_clean, y_true, model,
             grad.data = replace_pixels(grad.data, torch.zeros_like(grad.data), center, "square", side_length_square = beta*k)
           elif replace_method == "threshold":
             grad.data = replace_pixels(grad.data, torch.zeros_like(grad.data), center, "threshold", grayscale_cam[0],
-                                       threshold = max_cam/(0.88**k), side_length_threshold = beta*m)
+                                       region_threshold_ratio = 0.88**k, side_length_threshold = beta*m)
           g += grad
           x_adv.grad.zero_()
 
@@ -234,7 +243,7 @@ def APD(x_clean, y_true, model,
   return x_adv
 
 
-def save_adversarial_images(dataloader, model, device, save_dir=None):
+def save_adversarial_images(dataloader, model, device, save_dir=None, attack_method="APD"):
     """
     Processes the entire dataset to generate and save adversarial images within a 'Generated'
     parent directory, naming the subdirectory after the model if not specified.
@@ -263,9 +272,15 @@ def save_adversarial_images(dataloader, model, device, save_dir=None):
     model.to(device)
     msg = f"Generating adversarial images with {model.name}"
     for batch_idx, (images, labels, IDs) in enumerate(tqdm(dataloader, desc=msg)):
-        x_adv = APD(images, labels, model)
-        x_adv_cpu = x_adv.cpu()
-        for i, x_adv_img in enumerate(x_adv_cpu):
+        if attack_method == "APD":
+          x_adv = APD(images, labels, model)
+        elif attack_method == "MFGSM":
+          x_adv = MFGSM(images, labels, model)
+        else:
+          raise ValueError("Unsupported attack method specified.")
+        x_adv_dep = deprocess_image(x_adv)
+        # x_adv_dep = x_adv.to('cpu')
+        for i, x_adv_img in enumerate(x_adv_dep):
             save_path = os.path.join(save_dir, f"{IDs[i]}.png")
             save_image(x_adv_img, save_path)
 
