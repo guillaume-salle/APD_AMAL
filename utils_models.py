@@ -33,12 +33,11 @@ def get_model(model_name):
     Returns:
         torch.nn.Module: The requested model, ready for inference, with 'transform' and 'target_layers' attributes.
     """
-    # Instantiate the model
-    # if model_name == "resnet50":
-    #     model = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.IMAGENET1K_V1)
-    #     model.input_size = 224
-    #     model.target_layers = [model.layer4[-1]]  # Directly assign target layers
-    if model_name == "squeezenet":
+    if model_name == "resnet50":
+        model = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.IMAGENET1K_V1)
+        model.input_size = 224
+        model.target_layers = [model.layer4[-1]]  # Directly assign target layers
+    elif model_name == "squeezenet":
         model = torchvision.models.squeezenet1_1(weights=torchvision.models.SqueezeNet1_1_Weights.DEFAULT)
         model.input_size = 224
         model.target_layers = [model.features[-1]]
