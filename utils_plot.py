@@ -104,7 +104,7 @@ def show_cams(model, images, labels, labels_dict, rows=2, image_weight=0.7):
 
     processed_images = []
 
-    for i in tqdm(range(num_images), desc="Processing Images"):
+    for i in tqdm(range(num_images), desc=f"Processing CAMs for {model.name}"):
         img = images[i].float().div(255.0).cpu().numpy()
         img = np.transpose(img, (1, 2, 0))  
         
