@@ -127,7 +127,7 @@ def show_one_cam(model, img, label, title=None, image_weight=0.7):
     show_one_image(processed_img, title=title)
 
 
-def show_centers(model, images, labels, rows=2):
+def show_centers(model, images, labels, rows=2, method_centers="our_method"):
     """
     Displays a grid of CAMs overlaid with center points.
 
@@ -158,7 +158,7 @@ def show_centers(model, images, labels, rows=2):
         ax = plt.gca()
         ax.imshow(grayscale_cam[i], cmap='gray')
 
-        filtered_coordinates = get_centers(grayscale_cam[i], ratio_threshold=0.6, min_distance=20)
+        filtered_coordinates = get_centers(grayscale_cam[i], ratio_threshold=0.6, min_distance=20, method_centers=method_centers)
 
         # Plot the filtered coordinates on the images
         ax.plot(filtered_coordinates[:, 1], filtered_coordinates[:, 0], 'r.', markersize=10)

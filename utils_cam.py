@@ -68,5 +68,8 @@ def get_centers(grayscale_cam, ratio_threshold=0.6, min_distance=20, num_peaks=3
                 break
         if len(coordinates_centers) == 0:
             return np.array([np.unravel_index(np.argmax(grayscale_cam), grayscale_cam.shape)])
+        coordinates_centers = np.array(coordinates_centers)
+    else:
+        raise ValueError(f"Invalid method_centers: {method_centers}. Must be 'our_method' or 'article'.")
 
     return coordinates_centers
